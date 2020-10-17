@@ -31,6 +31,7 @@
   - Based on text: 280 / 35 / 35
 
 - **Example**
+
 | person_ix |                                             audio |            Sentence | Emotion |
 |----------:|--------------------------------------------------:|--------------------:|--------:|
 |         0 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
@@ -55,6 +56,7 @@
   - The code for MLM is not provided in this repository (please refer [here](https://github.com/JhnLee/pytorch-bert-korean))
 
 - **Example**
+
 |                           Sentence                           | Emotion |   Domain    |
 | :----------------------------------------------------------: | :-----: | :---------: |
 |    굿굿, 사용 후 탄력이나 피부결 느낌 좋은데 가격이 ㄷㄷ     |  긍정   |  cosmetic   |
