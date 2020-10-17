@@ -26,14 +26,12 @@
 - **Train / Dev / Test Split**
   - Based on audio: 8278 / 1014 / 1003
   - Based on text: 280 / 35 / 35
+- **Preprocess**
+  - Convert ```m2ts video format``` to ```wav audio 1-channel```
 
-<br/>
 
-## Preprocess
-#### 1. Extract Audio from Dataset1
 
-- Convert ```m2ts video format``` to ```wav audio 1-channel```
-- **Example**
+- **Preprocessed Output**
 
 | person_ix |                                             audio |            Sentence | Emotion |
 |----------:|--------------------------------------------------:|--------------------:|--------:|
@@ -43,8 +41,14 @@
 |         6 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
 |         8 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
 
+<br/>
 
+## Usage
+#### Train AudioText Transformer
 
+```python
+train.py
+```
 
 
 
