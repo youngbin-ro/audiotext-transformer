@@ -18,18 +18,14 @@
 #### 1. Korean Multimodal Sentiment Analysis Dataset
 
 - 자율지능 디지털 동반자 [감정 분류용 데이터셋](http://aicompanion.or.kr/nanum/tech/data_introduce.php?offset=8&idx=23) (registration and authorization are needed for downloading)
-
 - **Classes**: 분노(anger), 공포(fear), 중립(neutrality), 슬픔(sadness), 행복(happiness), 놀람(surprise), 혐오(disgust)
-
 - **Provided Modality**: Video, Audio, Text
   - We only use audio data
   - Text feature is obtained via ASR from audio without using the data provided
   - Vision modality is not considered in this project
-
 - **Train / Dev / Test Split**
   - Based on audio: 8278 / 1014 / 1003
   - Based on text: 280 / 35 / 35
-
 - **Example**
 
 | person_ix |                                             audio |            Sentence | Emotion |
@@ -45,16 +41,12 @@
 > The dataset for STEP3 (KoBERT further pre-training)
 
 - **Download**: [Train](https://drive.google.com/file/d/1GvgWPKXVATj86GjZEJ4Xzzf-TiiOmKL3/view?usp=sharing) / [Dev](https://drive.google.com/file/d/1_O5_2xouFl3GYijONxqmPBqsP_dJM4QR/view?usp=sharing) / [Test](https://drive.google.com/file/d/1l5lfoiwZ-SAe0coK0kfVDjRK6EqMlVcT/view?usp=sharing)
-
 - **Classes**: 긍정(positive), 부정(negative)
-
 - **Domains**: 어플리케이션(application), 화장품(cosmetic), 영화(movie)
-
 - **Information**
   - Crawled from [Google Play](https://play.google.com/store?hl=ko), [Naver Movie](https://movie.naver.com/), [Glowpick](https://www.glowpick.com/)
   - We do not use class and domain information for training (only use sentence itself for unsupervised masked language modeling)
   - The code for MLM is not provided in this repository (please refer [here](https://github.com/JhnLee/pytorch-bert-korean))
-
 - **Example**
 
 |                           Sentence                           | Emotion |   Domain    |
