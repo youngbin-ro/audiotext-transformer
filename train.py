@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument('--emb_dropout', type=float, default=.2)
     parser.add_argument('--res_dropout', type=float, default=.1)
     parser.add_argument('--out_dropout', type=float, default=.1)
-
+    
     # architecture
     parser.add_argument('--layers', type=int, default=4)
     parser.add_argument('--d_model', type=int, default=64)
@@ -45,12 +45,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # --------------------------------------------------------------
-
-
-
-
-
-
-
-
-
