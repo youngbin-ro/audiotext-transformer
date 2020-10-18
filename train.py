@@ -1,5 +1,11 @@
 import argparse
 import torch
+import logging
+from utils import set_seed
+
+
+def main(args):
+    return
 
 
 if __name__ == "__main__":
@@ -19,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument('--emb_dropout', type=float, default=.2)
     parser.add_argument('--res_dropout', type=float, default=.1)
     parser.add_argument('--out_dropout', type=float, default=.1)
-    
+
     # architecture
     parser.add_argument('--layers', type=int, default=4)
     parser.add_argument('--d_model', type=int, default=64)
@@ -42,6 +48,20 @@ if __name__ == "__main__":
     parser.add_argument('--n_fft_size', type=int, default=400)
     parser.add_argument('--n_mfcc', type=int, default=40)
 
-    args = parser.parse_args()
+    args_ = parser.parse_args()
 
-    # --------------------------------------------------------------
+    # -------------------------------------------------------------- #
+
+    # seed and device setting
+    set_seed(args_.seed)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    args_.device = device
+
+    # log setting
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        level=logging.INFO,
+    )
+
+    main(args_)
