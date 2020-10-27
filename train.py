@@ -2,22 +2,41 @@ import argparse
 import torch
 import logging
 from utils import set_seed
+from dataset import get_data_loader
 
 
 def main(args):
-    return
+    set_seed(args.seed)
+
+    # load data
+    loaders = (get_data_loader(
+        args=args,
+        data_path=args.data_path,
+        bert_path=args.bert_path,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        split=split
+    ) for split in ['train', 'dev'])
+    trn_loader, dev_loader = loaders
+
+    # initialize model
+    mult = MultimodalTransformer(
+        # TODO
+    ).to(args.device)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # settings
-    parser.add_argument('--do_audio', action='store_true')
+    parser.add_argument('--only_audio', action='store_true')
+    parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--logging_steps', type=int, default=30)
     parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=12)
 
     # dropouts
     parser.add_argument('--attn_dropout', type=float, default=.2)
@@ -58,6 +77,7 @@ if __name__ == "__main__":
     args_.device = device
 
     # log setting
+    logger = logging.getLogger(__name__)
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
