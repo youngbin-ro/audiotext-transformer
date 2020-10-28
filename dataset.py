@@ -2,9 +2,13 @@ import os
 import re
 import html
 import torch
+import librosa
+import logging
 import pandas as pd
 import numpy as np
-from KoBERT.pretrained_model.tokenization import BertTokenizer
+from model import load_bert
+from torchaudio.transforms import MFCC
+from KoBERT.tokenization import BertTokenizer
 from torch.utils.data import (
     Dataset,
     DataLoader,
@@ -30,11 +34,12 @@ def get_data_loader(args,
                     batch_size,
                     num_workers,
                     split='train'):
+    logging.info(f"loding dataset !{split}! split")
 
     # paths
     data_path = os.path.join(data_path, f'{split}.pkl')
-    vocab_path = os.path.join(bert_path, 'vocab.korean.rawtext.list')
-    bert_args_path = os.path.join(bert_path, 'training_args.bin')
+    vocab_path = os.path.join(bert_path, 'vocab.list')
+    bert_args_path = os.path.join(bert_path, 'args.bin')
 
     # MultimodalDataset object
     dataset = MultimodalDataset(
@@ -134,98 +139,91 @@ class AudioTextBatchFunction:
                  sep_idx,
                  bert_args,
                  device='cpu'):
-        self.only_audio = args.do_audio
         self.device = device
 
-        # related to audio--------------------
-        self.max_len_a = args.max_len_for_audio
+        # audio properties
+        self.max_len_audio = args.max_len_audio
         self.n_mfcc = args.n_mfcc
         self.n_fft_size = args.n_fft_size
-        self.sample_lr = args.sample_rate
-        self.resample_lr = args.resample_rate
+        self.sample_rate = args.sample_rate
+        self.resample_rate = args.resample_rate
 
-        self.audio2mfcc = torchaudio.transforms.MFCC(sample_rate=self.resample_lr,
-                                                     n_mfcc=self.n_mfcc,
-                                                     log_mels=False,
-                                                     melkwargs={'n_fft': self.n_fft_size}).to(self.device)
+        # text properties
+        self.max_len_bert = bert_args.max_len
+        self.pad_idx = pad_idx
+        self.cls_idx = cls_idx
+        self.sep_idx = sep_idx
 
-        if not self.only_audio:
-            # related to text--------------------
-            self.max_len_t = bert_args.max_len
-            self.pad_idx = pad_idx
-            self.cls_idx = cls_idx
-            self.sep_idx = sep_idx
+        # audio feature extractor
+        self.audio2mfcc = MFCC(
+            sample_rate=self.resample_rate,
+            n_mfcc=self.n_mfcc,
+            log_mels=False,
+            melkwargs={'n_fft': self.n_fft_size}
+        ).to(self.device)
 
-            self.bert_config = BertConfig(args.bert_config_path)
-            self.bert_config.num_labels = num_label_from_bert
-
-            self.model = BertForTextRepresentation(self.bert_config).to(self.device)
-            pretrained_weights = torch.load(args.bert_model_path
-                                            , map_location=torch.device(self.device))
-            self.model.load_state_dict(pretrained_weights, strict=False)
-            self.model.eval()
+        # text feature extractor
+        self.bert = load_bert(args.bert_path, self.device)
+        self.bert.eval()
 
     def __call__(self, batch):
-        audio, texts, label = list(zip(*batch))
+        audios, sentences, labels = list(zip(*batch))
 
-        if not self.only_audio:
-            # Get max length from batch
-            max_len = min(self.max_len_t, max([len(i) for i in texts]))
-            texts = torch.tensor(
-                [self.pad_with_text([self.cls_idx] + text + [self.sep_idx], max_len) for text in texts])
-            masks = torch.ones_like(texts).masked_fill(texts == self.pad_idx, 0)
+        # text inputs
+        max_len = min(self.max_len_bert, max([len(sent) for sent in sentences]))
+        input_ids = torch.tensor([self.pad_with_text(sent, max_len) for sent in sentences])
+        masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0)
 
-            with torch.no_grad():
-                # text_emb = last layer
-                text_emb, cls_token = self.model(**{'input_ids': texts.to(self.device),
-                                                    'attention_mask': masks.to(self.device)})
+        # extract features
+        with torch.no_grad():
+            text_emb, _ = self.bert(input_ids, masks)
+            audio_emb, audio_mask = self.pad_with_mfcc(audios)
 
-                audio_emb, audio_mask = self.pad_with_mfcc(audio)
+        return audio_emb, audio_mask, text_emb, torch.tensor(labels)
 
-            return audio_emb, audio_mask, text_emb, torch.tensor(label)
-        else:
-            audio_emb, audio_mask = self.pad_with_mfcc(audio)
-            return audio_emb, audio_mask, None, torch.tensor(label)
+    def _add_special_tokens(self, token_ids):
+        return [self.cls_idx] + token_ids + [self.sep_idx]
 
-    def pad_with_text(self, sample, max_len):
-        diff = max_len - len(sample)
+    def pad_with_text(self, sentence, max_len):
+        sentence = self._add_special_tokens(sentence)
+        diff = max_len - len(sentence)
         if diff > 0:
-            sample += [self.pad_idx] * diff
+            sentence += [self.pad_idx] * diff
         else:
-            sample = sample[-max_len:]
-        return sample
+            sentence = sentence[:max_len - 1] + [self.pad_idx]
+        return sentence
 
-    def pad_with_mfcc(self, audios):
-        max_len_batch = min(self.max_len_a, max([len(a) for a in audios]))
-        audio_array = torch.zeros(len(audios), self.n_mfcc, max_len_batch).fill_(float('-inf')).to(self.device)
-        for ix, audio in enumerate(audios):
-            audio_ = librosa.core.resample(audio, self.sample_lr, self.resample_lr)
-            audio_ = torch.tensor(self.trimmer(audio_))
-            mfcc = self.audio2mfcc(audio_.to(self.device))
-            sel_ix = min(mfcc.shape[1], max_len_batch)
-            audio_array[ix, :, :sel_ix] = mfcc[:, :sel_ix]
-        # (bat, n_mfcc, seq) -> (bat, seq, n_mfcc)
-        padded_array = audio_array.transpose(2, 1)
-
-        # key masking
-        # (batch, seq)
-        key_mask = padded_array[:, :, 0]
-        key_mask = key_mask.masked_fill(key_mask != float('-inf'), 0).masked_fill(key_mask == float('-inf'), 1).bool()
-
-        # -inf -> 0.0
-        padded_array = padded_array.masked_fill(padded_array == float('-inf'), float(0))
-        return padded_array, key_mask
-
-    def trimmer(self, audio):
+    @staticmethod
+    def _trim(audio):
         fwd_audio = []
-        fwd_init = np.float32(0)
         for a in audio:
-            if fwd_init != np.float32(a):
+            if np.float32(0) != np.float32(a):
                 fwd_audio.append(a)
 
-        bwd_init = np.float32(0)
-        bwd_audio = []
-        for a in fwd_audio[::-1]:
-            if bwd_init != np.float32(a):
-                bwd_audio.append(a)
-        return bwd_audio[::-1]
+        #bwd_audio = []
+        #for a in fwd_audio[::-1]:
+        #    if np.float32(0) != np.float32(a):
+        #        bwd_audio.append(a)
+        #return bwd_audio[::-1]
+        return fwd_audio
+
+    def pad_with_mfcc(self, audios):
+        max_len = min(self.max_len_audio, max([len(audio) for audio in audios]))
+        audio_array = torch.zeros(len(audios), self.n_mfcc, max_len).fill_(float('-inf'))
+        for idx, audio in enumerate(audios):
+            audio = librosa.core.resample(audio, self.sample_rate, self.resample_rate)
+            mfcc = self.audio2mfcc(torch.tensor(self._trim(audio)).to(self.device))
+            sel_idx = min(mfcc.shape[1], max_len)
+            audio_array[idx, :, :sel_idx] = mfcc[:, :sel_idx]
+
+        # (batch_size, n_mfcc, seq_len) -> (batch_size, seq_len, n_mfcc)
+        padded = audio_array.transpose(2, 1)
+
+        # key masking: (batch_size, seq_len)
+        key_mask = padded[:, :, 0]
+        key_mask = key_mask.masked_fill(key_mask != float('-inf'), 0)
+        key_mask = key_mask.masked_fill(key_mask == float('-inf'), 1).bool()
+
+        # -inf -> 0.0
+        padded_array = padded.masked_fill(padded == float('-inf'), 0.)
+        return padded_array, key_mask
