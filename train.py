@@ -20,6 +20,9 @@ def main(args):
     ) for split in ['train', 'dev'])
     trn_loader, dev_loader = loaders
 
+    for batch in trn_loader:
+        break
+
     # initialize model
     mult = MultimodalTransformer(
         # TODO
