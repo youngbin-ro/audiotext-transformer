@@ -1,9 +1,12 @@
 import argparse
 import torch
 import logging
+import torch.optim as optim
 from utils import set_seed
 from dataset import get_data_loader
 from model import MultimodalTransformer
+from warmup_scheduler import GradualWarmupScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def main(args):
@@ -20,13 +23,41 @@ def main(args):
     ) for split in ['train', 'dev'])
     trn_loader, dev_loader = loaders
 
+    # initialize model
+    model = MultimodalTransformer(
+        n_layers=args.n_layers,
+        n_heads=args.n_heads,
+        n_classes=args.n_classes,
+        only_audio=args.only_audio,
+        only_text=args.only_text,
+        d_audio_orig=args.d_audio_orig,
+        d_text_orig=args.d_text_orig,
+        d_model=args.d_model,
+        attn_dropout=args.attn_dropout,
+        relu_dropout=args.relu_dropout,
+        emb_dropout=args.emb_dropout,
+        res_dropout=args.res_dropout,
+        out_dropout=args.out_dropout,
+        attn_mask=args.attn_mask
+    ).to(args.device)
+
+    # warmup scheduling
+    args.total_steps = round(len(trn_loader) * args.epochs)
+    args.warmup_steps = round(args.total_steps / args.warmup_percent)
+
+    # optimizer & scheduler
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer=optimizer,
+        num_warmup_steps=args.warmup_steps,
+        num_training_steps=args.total_steps
+    )
+
     for batch in trn_loader:
         break
 
-    # initialize model
-    mult = MultimodalTransformer(
-        # TODO
-    ).to(args.device)
 
 
 if __name__ == "__main__":
