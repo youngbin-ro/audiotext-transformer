@@ -34,7 +34,7 @@ def get_data_loader(args,
                     batch_size,
                     num_workers,
                     split='train'):
-    logging.info(f"loding dataset !{split}! split")
+    logging.info(f"loading {split} dataset")
 
     # paths
     data_path = os.path.join(data_path, f'{split}.pkl')
@@ -195,17 +195,16 @@ class AudioTextBatchFunction:
 
     @staticmethod
     def _trim(audio):
-        fwd_audio = []
-        for a in audio:
+        left, right = None, None
+        for idx, a in enumerate(audio):
             if np.float32(0) != np.float32(a):
-                fwd_audio.append(a)
-
-        #bwd_audio = []
-        #for a in fwd_audio[::-1]:
-        #    if np.float32(0) != np.float32(a):
-        #        bwd_audio.append(a)
-        #return bwd_audio[::-1]
-        return fwd_audio
+                left = idx
+                break
+        for idx, a in enumerate(audio[::-1]):
+            if np.float32(0) != np.float32(a):
+                right = -idx - 1
+                break
+        return audio[left:right + 1]
 
     def pad_with_mfcc(self, audios):
         max_len = min(self.max_len_audio, max([len(audio) for audio in audios]))
