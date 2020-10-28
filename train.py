@@ -3,6 +3,7 @@ import torch
 import logging
 from utils import set_seed
 from dataset import get_data_loader
+from model import MultimodalTransformer
 
 
 def main(args):
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--logging_steps', type=int, default=30)
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('--num_workers', type=int, default=12)
+    parser.add_argument('--num_workers', type=int, default=4)
 
     # dropouts
     parser.add_argument('--attn_dropout', type=float, default=.2)
@@ -46,9 +47,10 @@ if __name__ == "__main__":
     parser.add_argument('--out_dropout', type=float, default=.1)
 
     # architecture
-    parser.add_argument('--layers', type=int, default=4)
+    parser.add_argument('--n_layers', type=int, default=4)
     parser.add_argument('--d_model', type=int, default=64)
     parser.add_argument('--n_heads', type=int, default=8)
+    parser.add_argument('--attn_mask', action='store_false')
 
     # training
     parser.add_argument('--lr', type=float, default=1e-5)
@@ -60,7 +62,6 @@ if __name__ == "__main__":
     parser.add_argument('--warmup_percent', type=float, default=0.1)
 
     # data processing
-    parser.add_argument('--max_len_text', type=int, default=64)
     parser.add_argument('--max_len_audio', type=int, default=400)
     parser.add_argument('--sample_rate', type=int, default=48000)
     parser.add_argument('--resample_rate', type=int, default=16000)
@@ -70,6 +71,10 @@ if __name__ == "__main__":
     args_ = parser.parse_args()
 
     # -------------------------------------------------------------- #
+
+    # check usage of modality
+    if args_.only_audio and args_.only_text:
+        raise ValueError("Please check your usage of modalities.")
 
     # seed and device setting
     set_seed(args_.seed)
