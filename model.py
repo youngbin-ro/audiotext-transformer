@@ -231,11 +231,7 @@ class MultimodalTransformer(nn.Module, ABC):
         self.fc2 = nn.Linear(combined_dim, combined_dim)
         self.out_layer = nn.Linear(combined_dim, n_classes)
 
-    def forward(self,
-                x_audio,
-                x_text=None,
-                a_mask=None,
-                t_mask=None):
+    def forward(self, x_audio, x_text):
 
         # temporal convolution
         x_audio = self.audio_encoder(x_audio.transpose(1, 2)).transpose(1, 2)
@@ -245,69 +241,14 @@ class MultimodalTransformer(nn.Module, ABC):
         x_audio = self.audio_with_text(x_audio, x_text).transpose(0, 1)
         x_text = self.text_with_audio(x_text, x_audio).transpose(0, 1)
 
+        # self-attention
+        x_audio = self.audio_layers(x_audio)
+        x_text = self.text_layers(x_text)
 
-
-
-
-
-
-
-
-        if self.only_audio:
-            #  (B, L, d) -> (L, B, d)
-            x_audio = self.audio_layers(x_audio,
-                                        x_key_padding_mask=None)
-
-            if self.merge_how == 'average':
-                # (bat, dim)
-
-                features = x_audio.mean(dim=0)
-            else:
-                # (bat, dim)
-                features = x_audio[-1]
-        else:
-            # for conv, (B, L, D) => (B, D, L)
-            x_audio = x_audio.transpose(1, 2)
-            x_text = F.dropout(x_text.transpose(1, 2), self.emb_dropout, self.training)
-
-            # (B, D, L) => (B, L, D)
-            x_audio = self.audio_encoder(x_audio).transpose(1, 2)
-            x_text = self.text_encoder(x_text).transpose(1, 2)
-
-            # Crossmodal Attention
-            # out: (seq, bat, dim)
-            # key masking was already applied to BERT model
-            x_audio_with_text = self.audio_layers_with_text(x_audio,
-                                                            x_text)
-            # out: (seq, bat, dim)
-            x_text_with_audio = self.text_layers_with_audio(x_text,
-                                                            x_audio,
-                                                            x_key_padding_mask=a_mask)
-
-            # bat, seq, dim -> seq, bat, dim
-            x_audio2 = x_audio_with_text.transpose(0, 1)
-            x_text2 = x_text_with_audio.transpose(0, 1)
-
-            x_audio2 = self.audio_layers(x_audio2)
-            x_text2 = self.text_layers(x_text2)
-
-            if self.merge_how == 'average':
-
-                # (bat, 2*dim)
-                features = torch.cat([x_audio2.mean(dim=0), x_text2.mean(dim=0)], dim=1)
-            else:
-                # (bat, 2*dim)
-                features = torch.cat([x_audio2[-1], x_text2[-1]], dim=1)
-
-        # --------------------
-
-        out = F.relu(self.fc_layer1(features))
-        out = self.fc_layer2(F.dropout(out, p=self.out_dropout, training=self.training))
-        out = out + features
-
-        out = self.out_layer(out)
-
-        return out, features
+        # aggregation & prediction
+        features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
+        out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
+        return self.out_layer(out), features
 
     @staticmethod
     def get_network(**kwargs):
