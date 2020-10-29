@@ -2,6 +2,7 @@ import argparse
 import torch
 import logging
 import os
+import json
 from utils import set_seed, get_optimizer_and_scheduler
 from dataset import get_data_loader
 from model import MultimodalTransformer
@@ -92,7 +93,7 @@ def main(args):
 
         # training and evaluation steps
         train(args, model, trn_loader, optimizer)
-        loss, f1 = evaluate(model, dev_loader, args.device)
+        loss, f1 = evaluate(model, dev_loader, args.device, scheduler)
 
         # save model
         model_name = "epoch{}-loss{:.4f}-f1{:.4f}.bin".format(epoch, loss, f1)
@@ -125,7 +126,7 @@ if __name__ == "__main__":
 
     # architecture
     parser.add_argument('--n_layers', type=int, default=4)
-    parser.add_argument('--d_model', type=int, default=40)
+    parser.add_argument('--d_model', type=int, default=64)
     parser.add_argument('--n_heads', type=int, default=8)
     parser.add_argument('--attn_mask', action='store_false')
 
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument('--sample_rate', type=int, default=48000)
     parser.add_argument('--resample_rate', type=int, default=16000)
     parser.add_argument('--n_fft_size', type=int, default=400)
-    parser.add_argument('--n_mfcc', type=int, default=64)
+    parser.add_argument('--n_mfcc', type=int, default=40)
 
     args_ = parser.parse_args()
 
@@ -150,6 +151,10 @@ if __name__ == "__main__":
     # check usage of modality
     if args_.only_audio and args_.only_text:
         raise ValueError("Please check your usage of modalities.")
+
+    # save config
+    with open(os.path.join(args_.save_path, 'config.json'), 'w') as fp:
+        json.dump(args_.__dict__, fp, indent=4)
 
     # seed and device setting
     set_seed(args_.seed)
