@@ -24,7 +24,7 @@ def train(args,
 
         # unpack and set inputs
         batch = map(lambda x: x.to(args.device), batch)
-        audios, audio_masks, texts, labels = batch
+        audios, texts, labels = batch
         labels = labels.squeeze(-1).long()
 
         # feed to model and get loss
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
     parser.add_argument('--save_path', type=str, default='./result')
     parser.add_argument('--n_classes', type=int, default=7)
-    parser.add_argument('--logging_steps', type=int, default=20)
+    parser.add_argument('--logging_steps', type=int, default=50)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--num_workers', type=int, default=8)
 
@@ -121,14 +121,14 @@ if __name__ == "__main__":
 
     # architecture
     parser.add_argument('--n_layers', type=int, default=4)
-    parser.add_argument('--d_model', type=int, default=64)
+    parser.add_argument('--d_model', type=int, default=40)
     parser.add_argument('--n_heads', type=int, default=8)
-    parser.add_argument('--attn_mask', action='store_true')
+    parser.add_argument('--attn_mask', action='store_false')
 
     # training
-    parser.add_argument('--lr', type=float, default=2e-5)
+    parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--clip', type=float, default=1.0)
     parser.add_argument('--warmup_percent', type=float, default=0.1)
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     parser.add_argument('--sample_rate', type=int, default=48000)
     parser.add_argument('--resample_rate', type=int, default=16000)
     parser.add_argument('--n_fft_size', type=int, default=400)
-    parser.add_argument('--n_mfcc', type=int, default=40)
+    parser.add_argument('--n_mfcc', type=int, default=64)
 
     args_ = parser.parse_args()
 
