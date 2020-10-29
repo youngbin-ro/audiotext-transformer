@@ -196,13 +196,13 @@ class AudioTextBatchFunction:
     @staticmethod
     def _trim(audio):
         left, right = None, None
-        for idx, a in enumerate(audio):
-            if np.float32(0) != np.float32(a):
+        for idx in range(len(audio)):
+            if np.float32(0) != np.float32(audio[idx]):
                 left = idx
                 break
-        for idx, a in enumerate(audio[::-1]):
-            if np.float32(0) != np.float32(a):
-                right = -idx - 1
+        for idx in reversed(range(len(audio))):
+            if np.float32(0) != np.float32(audio[idx]):
+                right = idx
                 break
         return audio[left:right + 1]
 
