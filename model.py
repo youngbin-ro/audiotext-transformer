@@ -198,12 +198,20 @@ class MultimodalTransformer(nn.Module, ABC):
                  out_dropout=.1,
                  attn_mask=True):
         super(MultimodalTransformer, self).__init__()
-        combined_dim = d_model * 2
+        self.only_audio = only_audio
+        self.only_text = only_text
+        self.use_both = not (self.only_audio or self.only_text)
+        if self.only_audio:
+            d_model = d_audio_orig
+        elif self.only_text:
+            d_model = d_text_orig
+        combined_dim = d_model * 2 if self.use_both else d_model
 
         # temporal convolutional layers
         # (B, d_orig, L) => (B, d_model, L)
-        self.audio_encoder = nn.Conv1d(d_audio_orig, d_model, 3, bias=False)
-        self.text_encoder = nn.Conv1d(d_text_orig, d_model, 3, bias=False)
+        if self.use_both:
+            self.audio_encoder = nn.Conv1d(d_audio_orig, d_model, 3, bias=False)
+            self.text_encoder = nn.Conv1d(d_text_orig, d_model, 3, bias=False)
 
         # kwargs for crossmodal transformers
         kwargs = {
@@ -218,36 +226,52 @@ class MultimodalTransformer(nn.Module, ABC):
         }
 
         # crossmodal transformers
-        self.audio_with_text = self.get_network(**kwargs)
-        self.text_with_audio = self.get_network(**kwargs)
+        if self.use_both:
+            self.audio_with_text = self.get_network(**kwargs)
+            self.text_with_audio = self.get_network(**kwargs)
 
         # self-attention layers
-        self.audio_layers = self.get_network(**kwargs)
-        self.text_layers = self.get_network(**kwargs)
+        if self.use_both or self.only_audio:
+            self.audio_layers = self.get_network(**kwargs)
+        if self.use_both:
+            # we do not use this layer if self.only_text == True,
+            # because we use just a pooler layer for prediction.
+            self.text_layers = self.get_network(**kwargs)
 
         # Projection layers
+        if self.use_both or self.only_audio:
+            self.fc1 = nn.Linear(combined_dim, combined_dim)
+            self.fc2 = nn.Linear(combined_dim, combined_dim)
         self.dropout = nn.Dropout(out_dropout)
-        self.fc1 = nn.Linear(combined_dim, combined_dim)
-        self.fc2 = nn.Linear(combined_dim, combined_dim)
         self.out_layer = nn.Linear(combined_dim, n_classes)
 
     def forward(self, x_audio, x_text):
+        out, features = None, None
+        if self.use_both:
+            # temporal convolution
+            x_audio = self.audio_encoder(x_audio.transpose(1, 2)).transpose(1, 2)
+            x_text = self.text_encoder(x_text.transpose(1, 2)).transpose(1, 2)
 
-        # temporal convolution
-        x_audio = self.audio_encoder(x_audio.transpose(1, 2)).transpose(1, 2)
-        x_text = self.text_encoder(x_text.transpose(1, 2)).transpose(1, 2)
+            # crossmodal attention
+            x_audio = self.audio_with_text(x_audio, x_text).transpose(0, 1)
+            x_text = self.text_with_audio(x_text, x_audio).transpose(0, 1)
 
-        # crossmodal attention
-        x_audio = self.audio_with_text(x_audio, x_text).transpose(0, 1)
-        x_text = self.text_with_audio(x_text, x_audio).transpose(0, 1)
+            # self-attention
+            x_audio = self.audio_layers(x_audio)
+            x_text = self.text_layers(x_text)
 
-        # self-attention
-        x_audio = self.audio_layers(x_audio)
-        x_text = self.text_layers(x_text)
+            # aggregation & prediction
+            features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
+            out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
-        # aggregation & prediction
-        features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
-        out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
+        elif self.only_audio:
+            features = self.audio_layers(x_audio).mean(dim=0)
+            out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
+
+        elif self.only_text:
+            features = x_text[:, 0, :]
+            out = self.dropout(features)
+
         return self.out_layer(out), features
 
     @staticmethod
