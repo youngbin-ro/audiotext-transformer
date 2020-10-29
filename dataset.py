@@ -27,7 +27,7 @@ def get_data_loader(args,
                     data_path,
                     bert_path,
                     num_workers,
-                    batch_size=1,
+                    batch_size,
                     split='train'):
     logging.info(f"loading {split} dataset")
 
@@ -57,7 +57,7 @@ def get_data_loader(args,
     return DataLoader(
         dataset=dataset,
         shuffle=True if split == 'train' else False,
-        batch_size=batch_size if split == 'train' else 1,
+        batch_size=batch_size,
         collate_fn=collate_fn,
         num_workers=num_workers
     )

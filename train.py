@@ -135,9 +135,9 @@ if __name__ == "__main__":
     # training
     parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--clip', type=float, default=1.0)
-    parser.add_argument('--warmup_percent', type=float, default=0.1)
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--clip', type=float, default=.8)
+    parser.add_argument('--warmup_percent', type=float, default=.1)
 
     # data processing
     parser.add_argument('--max_len_audio', type=int, default=400)

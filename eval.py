@@ -23,6 +23,7 @@ def evaluate(model,
             # unpack and set inputs
             batch = map(lambda x: x.to(device) if x is not None else x, batch)
             audios, a_mask, texts, t_mask, labels = batch
+            labels = labels.squeeze(-1).long()
             y_true += labels.tolist()
 
             # feed to model and get loss
@@ -63,6 +64,7 @@ def main(args):
         data_path=args.data_path,
         bert_path=args.bert_path,
         num_workers=args.num_workers,
+        batch_size=args.batch_size,
         split=args.split
     )
 
@@ -94,9 +96,10 @@ if __name__ == "__main__":
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
-    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly4-hd8-lr1e-5/epoch2-loss1.5355-f10.3848.bin')
+    parser.add_argument('--model_path', type=str, default='./result/epoch2-loss1.5351-f10.3848.bin')
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--num_workers', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=64)
 
     # architecture
     parser.add_argument('--n_layers', type=int, default=4)
