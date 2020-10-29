@@ -1,12 +1,49 @@
 import argparse
 import torch
 import logging
-import torch.optim as optim
-from utils import set_seed
+import os
+from utils import set_seed, get_optimizer_and_scheduler
 from dataset import get_data_loader
 from model import MultimodalTransformer
-from warmup_scheduler import GradualWarmupScheduler
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from tqdm import tqdm
+from eval import evaluate
+
+
+def train(args,
+          model,
+          trn_loader,
+          optimizer):
+
+    trn_loss, logging_loss = 0, 0
+    loss_fct = torch.nn.CrossEntropyLoss()
+    iterator = tqdm(enumerate(trn_loader), desc='steps', total=len(trn_loader))
+
+    # start steps
+    for step, batch in iterator:
+        model.train()
+
+        # unpack and set inputs
+        batch = map(lambda x: x.to(args.device), batch)
+        audios, audio_masks, texts, labels = batch
+        labels = labels.squeeze(-1).long()
+
+        # feed to model and get loss
+        logit, hidden = model(audios, texts)
+        loss = loss_fct(logit, labels.view(-1))
+        trn_loss += loss.item()
+
+        # update the model
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+        optimizer.step()
+        model.zero_grad()
+        args.global_step += 1
+
+        # summary
+        if args.global_step % args.logging_steps == 0:
+            cur_logging_loss = (trn_loss - logging_loss) / args.logging_steps
+            logging.info("train loss: {:.4f}".format(cur_logging_loss))
+            logging_loss = trn_loss
 
 
 def main(args):
@@ -30,8 +67,8 @@ def main(args):
         n_classes=args.n_classes,
         only_audio=args.only_audio,
         only_text=args.only_text,
-        d_audio_orig=args.d_audio_orig,
-        d_text_orig=args.d_text_orig,
+        d_audio_orig=args.n_mfcc,
+        d_text_orig=768,    # BERT hidden size
         d_model=args.d_model,
         attn_dropout=args.attn_dropout,
         relu_dropout=args.relu_dropout,
@@ -43,21 +80,22 @@ def main(args):
 
     # warmup scheduling
     args.total_steps = round(len(trn_loader) * args.epochs)
-    args.warmup_steps = round(args.total_steps / args.warmup_percent)
+    args.warmup_steps = round(args.total_steps * args.warmup_percent)
 
     # optimizer & scheduler
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer, scheduler = get_optimizer_and_scheduler(args, model)
 
-
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer=optimizer,
-        num_warmup_steps=args.warmup_steps,
-        num_training_steps=args.total_steps
-    )
-
-    for batch in trn_loader:
-        break
-
+    # training
+    logging.info('training starts')
+    model.zero_grad()
+    args.global_step = 0
+    for epoch in tqdm(range(1, args.epochs + 1), desc='epochs'):
+        train(args, model, trn_loader, optimizer)
+        loss, f1 = evaluate(model, dev_loader, args.device)
+        model_name = "epoch{}-loss{:.4f}-f1{:.4f}.bin".format(epoch, loss, f1)
+        model_path = os.path.join(args.save_path, model_name)
+        torch.save(model.state_dict(), model_path)
+    logging.info('training ended')
 
 
 if __name__ == "__main__":
@@ -68,10 +106,11 @@ if __name__ == "__main__":
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
+    parser.add_argument('--save_path', type=str, default='./result')
     parser.add_argument('--n_classes', type=int, default=7)
-    parser.add_argument('--logging_steps', type=int, default=30)
+    parser.add_argument('--logging_steps', type=int, default=20)
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=8)
 
     # dropouts
     parser.add_argument('--attn_dropout', type=float, default=.2)
@@ -84,15 +123,13 @@ if __name__ == "__main__":
     parser.add_argument('--n_layers', type=int, default=4)
     parser.add_argument('--d_model', type=int, default=64)
     parser.add_argument('--n_heads', type=int, default=8)
-    parser.add_argument('--attn_mask', action='store_false')
+    parser.add_argument('--attn_mask', action='store_true')
 
     # training
-    parser.add_argument('--lr', type=float, default=1e-5)
+    parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--clip', type=float, default=0.8)
-    parser.add_argument('--when', type=int, default=10)
-    parser.add_argument('--batch_chunk', type=int, default=1)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--clip', type=float, default=1.0)
     parser.add_argument('--warmup_percent', type=float, default=0.1)
 
     # data processing
