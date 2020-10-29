@@ -1,5 +1,5 @@
-for EPOCHS in 5 10; do
-  for BATCH_SIZE in 16 32 64; do
+for EPOCHS in 10 5; do
+  for BATCH_SIZE in 64 32 16; do
     for LAYERS in 4 2; do
       for HEADS in 8 4 2; do
         for LR in 1e-5 2e-5; do
