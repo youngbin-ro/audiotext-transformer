@@ -96,10 +96,10 @@ if __name__ == "__main__":
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
-    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly4-hd8-lr1e-5/epoch1-loss1.3941-f10.4697.bin')
+    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly4-hd8-lr1e-5/epoch1-loss1.3118-f10.4674.bin')
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--num_workers', type=int, default=8)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=16)
 
     # architecture
     parser.add_argument('--n_layers', type=int, default=4)
