@@ -45,7 +45,8 @@ def get_data_loader(args,
     dataset = MultimodalDataset(
         data_path=data_path,
         vocab_path=vocab_path,
-        split=split
+        only_audio=args.only_audio,
+        only_text=args.only_text
     )
 
     # sampler
@@ -81,9 +82,12 @@ class MultimodalDataset(Dataset):
     def __init__(self,
                  data_path,
                  vocab_path,
-                 split='train'):
+                 only_audio=False,
+                 only_text=False):
         super(MultimodalDataset, self).__init__()
-        self.split = split
+        self.only_audio = only_audio
+        self.only_text = only_text
+        self.use_both = not (self.only_audio or self.only_text)
         self.audio, self.text, self.labels = self.load_data(data_path)
         self.tokenizer, self.vocab = self.load_vocab(vocab_path)
 
@@ -97,9 +101,11 @@ class MultimodalDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        tokens = self.normalize_string(self.text[idx])
-        tokens = self.tokenize(tokens)
-        token_ids = self.tokenizer.convert_tokens_to_ids(tokens)
+        token_ids = None
+        if not self.only_audio:
+            tokens = self.normalize_string(self.text[idx])
+            tokens = self.tokenize(tokens)
+            token_ids = self.tokenizer.convert_tokens_to_ids(tokens)
 
         # ------------------------guideline------------------------------------
         # naming as labels -> use to sampler
@@ -140,6 +146,9 @@ class AudioTextBatchFunction:
                  bert_args,
                  device='cpu'):
         self.device = device
+        self.only_audio = args.only_audio
+        self.only_text = args.only_text
+        self.use_both = not (self.only_audio or self.only_text)
 
         # audio properties
         self.max_len_audio = args.max_len_audio
@@ -155,29 +164,32 @@ class AudioTextBatchFunction:
         self.sep_idx = sep_idx
 
         # audio feature extractor
-        self.audio2mfcc = MFCC(
-            sample_rate=self.resample_rate,
-            n_mfcc=self.n_mfcc,
-            log_mels=False,
-            melkwargs={'n_fft': self.n_fft_size}
-        ).to(self.device)
+        if not self.only_text:
+            self.audio2mfcc = MFCC(
+                sample_rate=self.resample_rate,
+                n_mfcc=self.n_mfcc,
+                log_mels=False,
+                melkwargs={'n_fft': self.n_fft_size}
+            ).to(self.device)
 
         # text feature extractor
-        self.bert = load_bert(args.bert_path, self.device)
-        self.bert.eval()
+        if not self.only_audio:
+            self.bert = load_bert(args.bert_path, self.device)
+            self.bert.eval()
 
     def __call__(self, batch):
         audios, sentences, labels = list(zip(*batch))
-
-        # text inputs
-        max_len = min(self.max_len_bert, max([len(sent) for sent in sentences]))
-        input_ids = torch.tensor([self.pad_with_text(sent, max_len) for sent in sentences])
-        masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0)
-
-        # extract features
+        audio_emb, text_emb = None, None
         with torch.no_grad():
-            text_emb, _ = self.bert(input_ids, masks)
-            audio_emb = self.pad_with_mfcc(audios)
+
+            if not self.only_audio:
+                max_len = min(self.max_len_bert, max([len(sent) for sent in sentences]))
+                input_ids = torch.tensor([self.pad_with_text(sent, max_len) for sent in sentences])
+                masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0)
+                text_emb, _ = self.bert(input_ids, masks)
+
+            if not self.only_text:
+                audio_emb = self.pad_with_mfcc(audios)
 
         return audio_emb, text_emb, torch.tensor(labels)
 
