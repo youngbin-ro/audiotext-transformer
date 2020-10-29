@@ -52,7 +52,7 @@ class TransformerBlock(nn.Module, ABC):
         preprocessing each layer with layer-norm and postprocessing with:
         `dropout -> add residual`. We default to the approach in the paper.
         """
-        query, key, value = [self.layernorm(x) for x in (query, key, value)]
+        query, key, value = [self.layer_norm(x) for x in (query, key, value)]
         mask = self.get_future_mask(query, key) if attn_mask else None
         x = self.self_attn(
             query, key, value,
@@ -94,7 +94,7 @@ class FeedForwardBlock(nn.Module, ABC):
         """
         Do layer-norm before self-attention
         """
-        normed = self.layernorm(x)
+        normed = self.layer_norm(x)
         projected = self.linear2(self.dropout1(F.relu(self.linear1(normed))))
         skipped = normed + self.dropout2(projected)
         return skipped
@@ -166,13 +166,13 @@ class CrossmodalTransformer(nn.Module, ABC):
     def forward(self, x_query, x_key=None):
 
         # query settings
-        x_query_pos = self.pos(x_query[:, :, 0])
+        x_query_pos = self.pos_emb(x_query[:, :, 0])
         x_query = self.emb_scale * x_query + x_query_pos
         x_query = self.dropout(x_query).transpose(0, 1)
 
         # key settings
         if x_key is not None:
-            x_key_pos = self.pos(x_key[:, :, 0])
+            x_key_pos = self.pos_emb(x_key[:, :, 0])
             x_key = self.emb_scale * x_key + x_key_pos
             x_key = self.dropout(x_key).transpose(0, 1)
 
