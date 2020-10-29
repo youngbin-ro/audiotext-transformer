@@ -1,4 +1,3 @@
-import os
 import argparse
 import torch
 import logging
@@ -15,6 +14,7 @@ def evaluate(model,
     y_true, y_pred = [], []
 
     model.eval()
+    model.zero_grad()
     loss_fct = torch.nn.CrossEntropyLoss()
     iterator = tqdm(enumerate(data_loader), desc='eval_steps', total=len(data_loader))
     for step, batch in iterator:
@@ -23,7 +23,6 @@ def evaluate(model,
             # unpack and set inputs
             batch = map(lambda x: x.to(device) if x is not None else x, batch)
             audios, a_mask, texts, t_mask, labels = batch
-            labels = labels.squeeze(-1).long()
             y_true += labels.tolist()
 
             # feed to model and get loss
@@ -63,7 +62,6 @@ def main(args):
         args=args,
         data_path=args.data_path,
         bert_path=args.bert_path,
-        batch_size=args.batch_size,
         num_workers=args.num_workers,
         split=args.split
     )
@@ -96,10 +94,9 @@ if __name__ == "__main__":
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
-    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly4-hd8-lr1e-5/epoch1-loss1.3118-f10.4674.bin')
+    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly4-hd8-lr1e-5/epoch2-loss1.5355-f10.3848.bin')
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--num_workers', type=int, default=8)
-    parser.add_argument('--batch_size', type=int, default=16)
 
     # architecture
     parser.add_argument('--n_layers', type=int, default=4)
@@ -118,8 +115,6 @@ if __name__ == "__main__":
 
     # -------------------------------------------------------------- #
     
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
     # check usage of modality
     if args_.only_audio and args_.only_text:
         raise ValueError("Please check your usage of modalities.")

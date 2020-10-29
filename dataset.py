@@ -9,12 +9,7 @@ import numpy as np
 from model import load_bert
 from torchaudio.transforms import MFCC
 from KoBERT.tokenization import BertTokenizer
-from torch.utils.data import (
-    Dataset,
-    DataLoader,
-    RandomSampler,
-    SequentialSampler
-)
+from torch.utils.data import Dataset, DataLoader
 
 
 LABEL_DICT = {
@@ -31,8 +26,8 @@ LABEL_DICT = {
 def get_data_loader(args,
                     data_path,
                     bert_path,
-                    batch_size,
                     num_workers,
+                    batch_size=1,
                     split='train'):
     logging.info(f"loading {split} dataset")
 
@@ -49,14 +44,6 @@ def get_data_loader(args,
         only_text=args.only_text
     )
 
-    # sampler
-    if split == 'train':
-        sampler = RandomSampler(dataset)
-    elif split in ['dev', 'test', 'test_stt']:
-        sampler = SequentialSampler(dataset)
-    else:
-        raise ValueError(f"Please check your data split: {split}")
-
     # collate_fn
     collate_fn = AudioTextBatchFunction(
         args=args,
@@ -70,7 +57,7 @@ def get_data_loader(args,
     return DataLoader(
         dataset=dataset,
         shuffle=True if split == 'train' else False,
-        batch_size=batch_size,
+        batch_size=batch_size if split == 'train' else 1,
         collate_fn=collate_fn,
         num_workers=num_workers
     )
@@ -187,13 +174,11 @@ class AudioTextBatchFunction:
                 input_ids = torch.tensor([self.pad_with_text(sent, max_len) for sent in sentences])
                 text_masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0).bool()
                 text_emb, _ = self.bert(input_ids, text_masks)
-                # convert zero & one for multi-head attention masking
-                text_masks = torch.zeros_like(input_ids).masked_fill(input_ids == self.pad_idx, 1).bool()
-                                
+
             if not self.only_text:
                 audio_emb, audio_mask = self.pad_with_mfcc(audios)
 
-        return audio_emb, audio_mask, text_emb, text_masks, torch.tensor(labels)
+        return audio_emb, audio_mask, text_emb, ~text_masks, torch.tensor(labels)
 
     def _add_special_tokens(self, token_ids):
         return [self.cls_idx] + token_ids + [self.sep_idx]
@@ -233,7 +218,7 @@ class AudioTextBatchFunction:
         padded = audio_array.transpose(2, 1)
         
         # get key mask
-        key_mask = padded[:,:,0]
+        key_mask = padded[:, :, 0]
         key_mask = key_mask.masked_fill(key_mask != float('-inf'), 0)
         key_mask = key_mask.masked_fill(key_mask == float('-inf'), 1).bool()
         

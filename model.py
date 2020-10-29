@@ -280,6 +280,14 @@ class MultimodalTransformer(nn.Module, ABC):
 
             # aggregation & prediction
             features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
+            """
+            features = []
+            for idx, (cur_a_mask, cur_t_mask) in enumerate(zip(a_mask, t_mask)):
+                cur_x_audio = x_audio[idx, ~cur_a_mask, :].mean(dim=0).unsqueeze(0)
+                cur_x_text = x_text[idx, ~cur_t_mask, :].mean(dim=0).unsqueeze(0)
+                features.append(torch.cat([cur_x_audio, cur_x_text], dim=1))
+            features = torch.cat(features, dim=0)
+            """
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_audio:
