@@ -177,9 +177,9 @@ class AudioTextBatchFunction:
         # extract features
         with torch.no_grad():
             text_emb, _ = self.bert(input_ids, masks)
-            audio_emb, audio_mask = self.pad_with_mfcc(audios)
+            audio_emb = self.pad_with_mfcc(audios)
 
-        return audio_emb, audio_mask, text_emb, torch.tensor(labels)
+        return audio_emb, text_emb, torch.tensor(labels)
 
     def _add_special_tokens(self, token_ids):
         return [self.cls_idx] + token_ids + [self.sep_idx]
@@ -190,7 +190,7 @@ class AudioTextBatchFunction:
         if diff > 0:
             sentence += [self.pad_idx] * diff
         else:
-            sentence = sentence[:max_len - 1] + [self.pad_idx]
+            sentence = sentence[:max_len - 1] + [self.sep_idx]
         return sentence
 
     @staticmethod
@@ -216,13 +216,7 @@ class AudioTextBatchFunction:
             audio_array[idx, :, :sel_idx] = mfcc[:, :sel_idx]
 
         # (batch_size, n_mfcc, seq_len) -> (batch_size, seq_len, n_mfcc)
-        padded = audio_array.transpose(2, 1)
-
-        # key masking: (batch_size, seq_len)
-        key_mask = padded[:, :, 0]
-        key_mask = key_mask.masked_fill(key_mask != float('-inf'), 0)
-        key_mask = key_mask.masked_fill(key_mask == float('-inf'), 1).bool()
-
         # -inf -> 0.0
-        padded_array = padded.masked_fill(padded == float('-inf'), 0.)
-        return padded_array, key_mask
+        padded = audio_array.transpose(2, 1)
+        padded = padded.masked_fill(padded == float('-inf'), 0.)
+        return padded
