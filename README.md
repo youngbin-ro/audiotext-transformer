@@ -20,18 +20,43 @@
 - 자율지능 디지털 동반자 [감정 분류용 데이터셋](http://aicompanion.or.kr/nanum/tech/data_introduce.php?offset=8&idx=23) (registration and authorization are needed for downloading)
 - **Classes**: 분노(anger), 공포(fear), 중립(neutrality), 슬픔(sadness), 행복(happiness), 놀람(surprise), 혐오(disgust)
 - **Provided Modality**: Video, Audio, Text
-  - We only use audio data
-  - Text feature is obtained via ASR from audio without using the data provided
+  - We only use audio and text data
+  - When testing, text is obtained via ASR from audio without using the data provided
   - Vision modality is not considered in this project
 - **Train / Dev / Test Split**
+  
   - Based on audio: 8278 / 1014 / 1003
   - Based on text: 280 / 35 / 35
 - **Preprocess**
+  
+  - Locate downloaded dataset as follows:
+  
+    ```
+    data/
+    └── 4.1 감정분류용 데이터셋/
+        ├── 000/
+        ├── 001/
+        ├── 002/
+        ├── ...
+        ├── 099/
+        ├── participant_info.xlsx
+        ├── rename_file.sh
+        ├── Script.hwp
+        └── test.py
+    ```
+  
+  - Convert ```Script.hwp``` to ```script.txt```
+  
+    ```
+    hwp5txt ./data/4.1 감정분류용 데이터셋/Script.hwp --output script.txt
+    ```
+  
+  - 
   - Convert ```m2ts video format``` to ```wav audio 1-channel```
 
 
 
-- **Preprocessed Output**
+- **Preprocessed Output** (<i>train.pkl</i>)
 
 | person_ix |                                             audio |            Sentence | Emotion |
 |----------:|--------------------------------------------------:|--------------------:|--------:|
