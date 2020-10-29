@@ -18,7 +18,7 @@ def evaluate(model, data_loader, device):
         with torch.no_grad():
 
             # unpack and set inputs
-            batch = map(lambda x: x.to(device), batch)
+            batch = map(lambda x: x.to(device) if x is not None else x, batch)
             audios, texts, labels = batch
             labels = labels.squeeze(-1).long()
             y_true += labels.tolist()

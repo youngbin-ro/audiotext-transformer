@@ -23,7 +23,7 @@ def train(args,
         model.train()
 
         # unpack and set inputs
-        batch = map(lambda x: x.to(args.device), batch)
+        batch = map(lambda x: x.to(args.device) if x is not None else x, batch)
         audios, texts, labels = batch
         labels = labels.squeeze(-1).long()
 
@@ -85,16 +85,20 @@ def main(args):
     # optimizer & scheduler
     optimizer, scheduler = get_optimizer_and_scheduler(args, model)
 
-    # training
     logging.info('training starts')
     model.zero_grad()
     args.global_step = 0
     for epoch in tqdm(range(1, args.epochs + 1), desc='epochs'):
+
+        # training and evaluation steps
         train(args, model, trn_loader, optimizer)
         loss, f1 = evaluate(model, dev_loader, args.device)
+
+        # save model
         model_name = "epoch{}-loss{:.4f}-f1{:.4f}.bin".format(epoch, loss, f1)
         model_path = os.path.join(args.save_path, model_name)
         torch.save(model.state_dict(), model_path)
+
     logging.info('training ended')
 
 
