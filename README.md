@@ -32,29 +32,36 @@
   - Locate downloaded dataset as follows:
   
     ```
-    data/
-    └── 4.1 감정분류용 데이터셋/
-        ├── 000/
-        ├── 001/
-        ├── 002/
-        ├── ...
-        ├── 099/
-        ├── participant_info.xlsx
-        ├── rename_file.sh
-        ├── Script.hwp
-        └── test.py
+    korean-audiotext-transformer/    
+    └── data/
+        └── 4.1 감정분류용 데이터셋/
+            ├── 000/
+            ├── 001/
+            ├── 002/
+            ├── ...
+            ├── 099/
+            ├── participant_info.xlsx
+            ├── rename_file.sh
+            ├── Script.hwp
+            └── test.py
     ```
   
   - Convert ```Script.hwp``` to ```script.txt```
   
     ```
-    hwp5txt ./data/4.1 감정분류용 데이터셋/Script.hwp --output script.txt
+    cd data/4.1 감정분류용 데이터셋
+    hwp5txt Script.hwp --output script.txt
     ```
   
-  - 
-  - Convert ```m2ts video format``` to ```wav audio 1-channel```
-
-
+  - Generate ```{train, dev, test}.pkl```
+  
+    ```
+    python preprocess.py \
+      raw_path='./data/4.1 감정분류용 데이터셋' \
+      script_path'./data/4.1 감정분류용 데이터셋/script.txt' \
+      save_path='./data' \
+      train_size=.8
+    ```
 
 - **Preprocessed Output** (<i>train.pkl</i>)
 
@@ -69,10 +76,44 @@
 <br/>
 
 ## Usage
+#### Before training,
+
+Download fine-tuned BERT, and locate the model as follows:
+
+- The model is already fine-tuned with Korean sentimental analysis dataset
+- We use this model as text embedding module (do not fine-tune anymore)
+
+```
+korean-audiotext-transformer/    
+└── KoBERT/
+    ├── args.bin
+    ├── config.json
+    ├── model.bin
+    ├── tokenization.py
+    └── vocab.list
+```
+
+
+
 #### Train AudioText Transformer
 
-```python
-train.py
+```shell
+python train.py \
+  --data_path='./data' \
+  --bert_path='./KoBERT' \
+  --save_path='./result' \
+  --attn_dropout=.2 \
+  --relu_dropout=.1 \
+  --emb_dropout=.2 \
+  --res_dropout=.1 \
+  --out_dropout=.1 \
+  --n_layers=4 \
+  --d_model=64 \
+  --n_heads=8 \
+  --lr=1e-5 \
+  --epochs=10 \
+  --batch_size=16 \
+  --n_mfcc=40
 ```
 
 
