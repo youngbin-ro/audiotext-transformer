@@ -1,8 +1,10 @@
+import argparse
 import torch
 import logging
 from tqdm import tqdm
 from sklearn.metrics import classification_report, confusion_matrix
-from dataset import LABEL_DICT
+from dataset import LABEL_DICT, get_data_loader
+from model import MultimodalTransformer
 
 
 def evaluate(model, data_loader, device):
@@ -17,7 +19,7 @@ def evaluate(model, data_loader, device):
 
             # unpack and set inputs
             batch = map(lambda x: x.to(device), batch)
-            audios, audio_masks, texts, labels = batch
+            audios, texts, labels = batch
             labels = labels.squeeze(-1).long()
             y_true += labels.tolist()
 
@@ -38,12 +40,11 @@ def evaluate(model, data_loader, device):
     f1 = report['macro avg']['f1-score']
     prec = report['macro avg']['precision']
     rec = report['macro avg']['recall']
-    acc = report['accuracy']
     loss /= len(data_loader)
 
     # logging
     log_template = "{}\tF1: {:.4f}\tPREC: {:.4f}\tREC: {:.4f}"
-    logging.info((log_template + "\tACC: {:.4f}").format("TOTAL", f1, prec, rec, acc))
+    logging.info(log_template.format("TOTAL", f1, prec, rec))
     for key, value in report.items():
         if key in LABEL_DICT:
             cur_f1 = value['f1-score']
@@ -55,8 +56,79 @@ def evaluate(model, data_loader, device):
 
 
 def main(args):
-    return
+    data_loader = get_data_loader(
+        args=args,
+        data_path=args.data_path,
+        bert_path=args.bert_path,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        split=args.split
+    )
+
+    model = MultimodalTransformer(
+        n_layers=args.n_layers,
+        n_heads=args.n_heads,
+        n_classes=args.n_classes,
+        only_audio=args.only_audio,
+        only_text=args.only_text,
+        d_audio_orig=args.n_mfcc,
+        d_text_orig=768,  # BERT hidden size
+        d_model=args.d_model,
+        attn_mask=args.attn_mask
+    ).to(args.device)
+    model.load_state_dict(torch.load(args.model_path))
+
+    # evaluation
+    logging.info('evaluation starts')
+    model.zero_grad()
+    evaluate(model, data_loader, args.device)
 
 
 if __name__ == "__main__":
-    main(None)
+    parser = argparse.ArgumentParser()
+
+    # settings
+    parser.add_argument('--split', type=str, default='test')
+    parser.add_argument('--only_audio', action='store_true')
+    parser.add_argument('--only_text', action='store_true')
+    parser.add_argument('--data_path', type=str, default='./data')
+    parser.add_argument('--bert_path', type=str, default='./KoBERT')
+    parser.add_argument('--model_path', type=str, default='./result/epoch4-loss1.2703-f10.5292.bin')
+    parser.add_argument('--n_classes', type=int, default=7)
+    parser.add_argument('--num_workers', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=32)
+
+    # architecture
+    parser.add_argument('--n_layers', type=int, default=4)
+    parser.add_argument('--d_model', type=int, default=40)
+    parser.add_argument('--n_heads', type=int, default=8)
+    parser.add_argument('--attn_mask', action='store_false')
+
+    # data processing
+    parser.add_argument('--max_len_audio', type=int, default=400)
+    parser.add_argument('--sample_rate', type=int, default=48000)
+    parser.add_argument('--resample_rate', type=int, default=16000)
+    parser.add_argument('--n_fft_size', type=int, default=400)
+    parser.add_argument('--n_mfcc', type=int, default=64)
+
+    args_ = parser.parse_args()
+
+    # -------------------------------------------------------------- #
+
+    # check usage of modality
+    if args_.only_audio and args_.only_text:
+        raise ValueError("Please check your usage of modalities.")
+
+    # seed and device setting
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    args_.device = device
+
+    # log setting
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        level=logging.INFO
+    )
+
+    main(args_)
