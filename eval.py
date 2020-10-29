@@ -7,7 +7,10 @@ from dataset import LABEL_DICT, get_data_loader
 from model import MultimodalTransformer
 
 
-def evaluate(model, data_loader, device):
+def evaluate(model,
+             data_loader,
+             device,
+             scheduler=None):
     loss = 0
     y_true, y_pred = [], []
 
@@ -41,6 +44,10 @@ def evaluate(model, data_loader, device):
     prec = report['macro avg']['precision']
     rec = report['macro avg']['recall']
     loss /= len(data_loader)
+
+    # scheduler step
+    if scheduler is not None:
+        scheduler.step(loss)
 
     # logging
     log_template = "{}\tF1: {:.4f}\tPREC: {:.4f}\tREC: {:.4f}"
@@ -120,8 +127,8 @@ if __name__ == "__main__":
         raise ValueError("Please check your usage of modalities.")
 
     # seed and device setting
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    args_.device = device
+    device_ = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    args_.device = device_
 
     # log setting
     logger = logging.getLogger(__name__)
