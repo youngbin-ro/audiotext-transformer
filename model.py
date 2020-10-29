@@ -124,14 +124,23 @@ class TransformerEncoderBlock(nn.Module, ABC):
     def forward(self,
                 x_query,
                 x_key=None,
+                key_mask=None,
                 attn_mask=None):
         """
         x : input of the encoder layer -> (L, B, d)
         """
         if x_key is not None:
-            x = self.transformer(x_query, x_key, x_key, attn_mask=attn_mask)
+            x = self.transformer(
+                x_query, x_key, x_key,
+                key_padding_mask=key_mask,
+                attn_mask=attn_mask
+            )
         else:
-            x = self.transformer(x_query, x_query, x_query, attn_mask=attn_mask)
+            x = self.transformer(
+                x_query, x_query, x_query,
+                key_padding_mask=key_mask,
+                attn_mask=attn_mask
+            )
         x = self.feedforward(x)
         return x
 
@@ -163,7 +172,7 @@ class CrossmodalTransformer(nn.Module, ABC):
         )
         self.layers = _get_clones(layer, n_layers)
 
-    def forward(self, x_query, x_key=None):
+    def forward(self, x_query, x_key=None, key_mask=None):
 
         # query settings
         x_query_pos = self.pos_emb(x_query[:, :, 0])
@@ -177,7 +186,11 @@ class CrossmodalTransformer(nn.Module, ABC):
             x_key = self.dropout(x_key).transpose(0, 1)
 
         for layer in self.layers:
-            x_query = layer(x_query, x_key, attn_mask=self.attn_mask)
+            x_query = layer(
+                x_query, x_key,
+                key_mask=key_mask,
+                attn_mask=self.attn_mask
+            )
         return x_query
 
 
@@ -210,8 +223,8 @@ class MultimodalTransformer(nn.Module, ABC):
         # temporal convolutional layers
         # (B, d_orig, L) => (B, d_model, L)
         if self.use_both:
-            self.audio_encoder = nn.Conv1d(d_audio_orig, d_model, 3, bias=False)
-            self.text_encoder = nn.Conv1d(d_text_orig, d_model, 3, bias=False)
+            self.audio_encoder = nn.Conv1d(d_audio_orig, d_model, 3, padding=1, bias=False)
+            self.text_encoder = nn.Conv1d(d_text_orig, d_model, 3, padding=1, bias=False)
 
         # kwargs for crossmodal transformers
         kwargs = {
@@ -245,27 +258,32 @@ class MultimodalTransformer(nn.Module, ABC):
         self.dropout = nn.Dropout(out_dropout)
         self.out_layer = nn.Linear(combined_dim, n_classes)
 
-    def forward(self, x_audio, x_text):
+    def forward(self,
+                x_audio,
+                x_text,
+                a_mask,
+                t_mask):
         out, features = None, None
         if self.use_both:
+            
             # temporal convolution
             x_audio = self.audio_encoder(x_audio.transpose(1, 2)).transpose(1, 2)
             x_text = self.text_encoder(x_text.transpose(1, 2)).transpose(1, 2)
-
+                        
             # crossmodal attention
-            x_audio = self.audio_with_text(x_audio, x_text).transpose(0, 1)
-            x_text = self.text_with_audio(x_text, x_audio).transpose(0, 1)
+            x_audio = self.audio_with_text(x_audio, x_text, t_mask).transpose(0, 1)
+            x_text = self.text_with_audio(x_text, x_audio, a_mask).transpose(0, 1)
 
             # self-attention
-            x_audio = self.audio_layers(x_audio)
-            x_text = self.text_layers(x_text)
+            x_audio = self.audio_layers(x_audio, key_mask=a_mask)
+            x_text = self.text_layers(x_text, key_mask=t_mask)
 
             # aggregation & prediction
             features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_audio:
-            features = self.audio_layers(x_audio).mean(dim=0)
+            features = self.audio_layers(x_audio, key_mask=a_mask).mean(dim=0)
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_text:

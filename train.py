@@ -13,7 +13,8 @@ from eval import evaluate
 def train(args,
           model,
           trn_loader,
-          optimizer):
+          optimizer,
+          scheduler):
 
     trn_loss, logging_loss = 0, 0
     loss_fct = torch.nn.CrossEntropyLoss()
@@ -22,14 +23,15 @@ def train(args,
     # start steps
     for step, batch in iterator:
         model.train()
+        model.zero_grad()
 
         # unpack and set inputs
         batch = map(lambda x: x.to(args.device) if x is not None else x, batch)
-        audios, texts, labels = batch
+        audios, a_mask, texts, t_mask, labels = batch
         labels = labels.squeeze(-1).long()
 
         # feed to model and get loss
-        logit, hidden = model(audios, texts)
+        logit, hidden = model(audios, texts, a_mask, t_mask)
         loss = loss_fct(logit, labels.view(-1))
         trn_loss += loss.item()
 
@@ -37,7 +39,7 @@ def train(args,
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
         optimizer.step()
-        model.zero_grad()
+        scheduler.step()
         args.global_step += 1
 
         # summary
@@ -92,8 +94,8 @@ def main(args):
     for epoch in tqdm(range(1, args.epochs + 1), desc='epochs'):
 
         # training and evaluation steps
-        train(args, model, trn_loader, optimizer)
-        loss, f1 = evaluate(model, dev_loader, args.device, scheduler)
+        train(args, model, trn_loader, optimizer, scheduler)
+        loss, f1 = evaluate(model, dev_loader, args.device)
 
         # save model
         model_name = "epoch{}-loss{:.4f}-f1{:.4f}.bin".format(epoch, loss, f1)

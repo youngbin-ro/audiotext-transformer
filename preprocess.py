@@ -5,6 +5,8 @@ import pandas as pd
 from tqdm import tqdm
 from dataset import LABEL_DICT
 from sklearn.model_selection import train_test_split
+from pydub import AudioSegment
+from pathlib import Path
 
 
 def allocate_label(sent_id):
@@ -80,21 +82,42 @@ def split_df(df, train_size):
 
 
 def extract_audio(path, df):
-    src_folders = [
-        folder for folder in os.listdir(path)
+    src_files = [
+        os.path.join(path, folder, file)
+        for folder in os.listdir(path)
         if os.path.isdir(os.path.join(path, folder))
+        for file in os.listdir(os.path.join(path, folder))
     ]
-    src_folders.sort(key=lambda x: int(x))
 
-    for src_folder in tqdm(src_folders, total=len(src_folders)):
-        cur_folder_path = os.path.join(path, src_folder)
-        src_files = os.listdir(cur_folder_path)
-        src_files.sort(key=lambda x: int(x.split('.')[0].split('-')[1]))
+    columns = ['person_idx', 'audio', 'sentence', 'emotion']
+    new_df = pd.DataFrame(columns=columns)
+    cur_idxs = list(df.index)
+    for src_file in tqdm(src_files, total=len(src_files)):
 
-        print(src_files)
-        print('----------------------------')
+        # find sentence & emotion
+        splitted = src_file.split('/')[-1].split('.')[0].split('-')
+        person_idx, sent_idx = map(int, splitted)
+        if sent_idx - 1 not in cur_idxs:
+            continue
+        cur_row = df.loc[sent_idx - 1]
+        sentence, emotion = cur_row.sentence, cur_row.emotion
 
-    return
+        # m2ts -> wav file
+        dst_file = src_file.replace('m2ts', 'wav')
+        if not Path(dst_file).is_file():
+            command = f"ffmpeg -loglevel error -i {src_file} {dst_file}"
+            subprocess.call(command, shell=True)
+
+        # convert wav file to 1 channel
+        audio = AudioSegment.from_wav(dst_file)
+        audio = audio.set_channels(1)
+        audio = audio.get_array_of_samples()
+
+        # save in dataframe
+        cur_row = [person_idx, audio, sentence, emotion]
+        new_df.loc[len(new_df.index)] = cur_row
+
+    return new_df.sort_values('sentence')
 
 
 def main(args):
@@ -108,9 +131,10 @@ def main(args):
     trn_df, dev_df, tst_df = split_df(total_df, args.train_size)
 
     # add audio features
-    for df, split in zip([trn_df, dev_df, tst_df], ['train', 'dev', 'test']):
+    for df, split in zip([trn_df, dev_df, tst_df], ['train_', 'dev_', 'test_']):
         df = extract_audio(args.raw_path, df)
-        #df.to_csv(os.path.join(args.save_path, f'{split}.pkl'))
+        df.to_pickle(os.path.join(args.save_path, f'{split}.pkl'))
+        print(f"saved {split}.pkl in {args.save_path}")
 
 
 if __name__ == "__main__":

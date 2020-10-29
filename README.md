@@ -65,23 +65,23 @@
 
 - **Preprocessed Output** (<i>train.pkl</i>)
 
-| person_ix |                                             audio |            Sentence | Emotion |
-|----------:|--------------------------------------------------:|--------------------:|--------:|
-|         0 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|         1 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|         3 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|         6 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|         8 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+| person_idx |                                             audio |            sentence | emotion |
+| ---------: | ------------------------------------------------: | ------------------: | ------: |
+|          0 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|          1 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|          3 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|          6 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|          8 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
 
 <br/>
 
 ## Usage
 #### Before training,
 
-Download fine-tuned BERT, and locate the model as follows:
+Download fine-tuned [BERT](https://drive.google.com/file/d/1WI-FLaMG-5TXwkykF3iUQJ1zYrbZSvzu/view?usp=sharing), and locate the model as follows:
 
-- The model is already fine-tuned with Korean sentimental analysis dataset
-- We use this model as text embedding module (do not fine-tune anymore)
+- The model was already fine-tuned with a [Korean sentimental analysis dataset](http://aicompanion.or.kr/nanum/tech/data_introduce.php?idx=47)
+- We use this model as a text embedding module (do not fine-tune anymore)
 
 ```
 korean-audiotext-transformer/    
@@ -97,6 +97,8 @@ korean-audiotext-transformer/
 
 #### Train AudioText Transformer
 
+- specified hyper-parameters are the best ones on development dataset
+
 ```shell
 python train.py \
   --data_path='./data' \
@@ -107,16 +109,54 @@ python train.py \
   --emb_dropout=.2 \
   --res_dropout=.1 \
   --out_dropout=.1 \
-  --n_layers=4 \
+  --n_layers=2 \
   --d_model=64 \
   --n_heads=8 \
   --lr=1e-5 \
   --epochs=10 \
-  --batch_size=16 \
+  --batch_size=64 \
+  --clip=1.0 \
+  --warmup_percent=.1 \
+  --max_len_audio=400 \
+  --sample_rate=48000 \
+  --resample_rate=16000 \
+  --n_fft_size=400 \
   --n_mfcc=40
 ```
 
 
+
+#### Train Audio-Only Baseline
+
+```shell
+python train.py --only_audio \
+  --n_layers=4 \
+  --n_heads=8 \
+  --lr=1e-3 \
+  --epochs=10 \
+  --batch_size=64 \
+```
+
+
+
+#### Train Text-Only Baseline
+
+```shell
+python train.py --only_text \
+  --n_layers=4 \
+  --n_heads=8 \
+  --lr=1e-3 \
+  --epochs=10 \
+  --batch_size=64 \
+```
+
+
+
+#### Evaluate Models
+
+```shell
+python eval.py [--FLAGS]
+```
 
 
 

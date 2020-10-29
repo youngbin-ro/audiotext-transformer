@@ -52,7 +52,7 @@ def get_data_loader(args,
     # sampler
     if split == 'train':
         sampler = RandomSampler(dataset)
-    elif split == 'dev' or split == 'test':
+    elif split in ['dev', 'test', 'test_stt']:
         sampler = SequentialSampler(dataset)
     else:
         raise ValueError(f"Please check your data split: {split}")
@@ -69,7 +69,7 @@ def get_data_loader(args,
 
     return DataLoader(
         dataset=dataset,
-        sampler=sampler,
+        shuffle=True if split == 'train' else False,
         batch_size=batch_size,
         collate_fn=collate_fn,
         num_workers=num_workers
@@ -179,19 +179,21 @@ class AudioTextBatchFunction:
 
     def __call__(self, batch):
         audios, sentences, labels = list(zip(*batch))
-        audio_emb, text_emb = None, None
+        audio_emb, audio_mask, text_emb, text_mask = None, None, None, None
         with torch.no_grad():
 
             if not self.only_audio:
                 max_len = min(self.max_len_bert, max([len(sent) for sent in sentences]))
                 input_ids = torch.tensor([self.pad_with_text(sent, max_len) for sent in sentences])
-                masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0)
-                text_emb, _ = self.bert(input_ids, masks)
-
+                text_masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0).bool()
+                text_emb, _ = self.bert(input_ids, text_masks)
+                # convert zero & one for multi-head attention masking
+                text_masks = torch.zeros_like(input_ids).masked_fill(input_ids == self.pad_idx, 1).bool()
+                                
             if not self.only_text:
-                audio_emb = self.pad_with_mfcc(audios)
+                audio_emb, audio_mask = self.pad_with_mfcc(audios)
 
-        return audio_emb, text_emb, torch.tensor(labels)
+        return audio_emb, audio_mask, text_emb, text_masks, torch.tensor(labels)
 
     def _add_special_tokens(self, token_ids):
         return [self.cls_idx] + token_ids + [self.sep_idx]
@@ -228,7 +230,13 @@ class AudioTextBatchFunction:
             audio_array[idx, :, :sel_idx] = mfcc[:, :sel_idx]
 
         # (batch_size, n_mfcc, seq_len) -> (batch_size, seq_len, n_mfcc)
-        # -inf -> 0.0
         padded = audio_array.transpose(2, 1)
+        
+        # get key mask
+        key_mask = padded[:,:,0]
+        key_mask = key_mask.masked_fill(key_mask != float('-inf'), 0)
+        key_mask = key_mask.masked_fill(key_mask == float('-inf'), 1).bool()
+        
+        # -inf -> 0.0
         padded = padded.masked_fill(padded == float('-inf'), 0.)
-        return padded
+        return padded, key_mask

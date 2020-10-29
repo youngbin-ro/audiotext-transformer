@@ -1,3 +1,4 @@
+import os
 import argparse
 import torch
 import logging
@@ -9,8 +10,7 @@ from model import MultimodalTransformer
 
 def evaluate(model,
              data_loader,
-             device,
-             scheduler=None):
+             device):
     loss = 0
     y_true, y_pred = [], []
 
@@ -22,12 +22,12 @@ def evaluate(model,
 
             # unpack and set inputs
             batch = map(lambda x: x.to(device) if x is not None else x, batch)
-            audios, texts, labels = batch
+            audios, a_mask, texts, t_mask, labels = batch
             labels = labels.squeeze(-1).long()
             y_true += labels.tolist()
 
             # feed to model and get loss
-            logit, hidden = model(audios, texts)
+            logit, hidden = model(audios, texts, a_mask, t_mask)
             cur_loss = loss_fct(logit, labels.view(-1))
             loss += cur_loss.item()
             y_pred += logit.max(dim=1)[1].tolist()
@@ -44,10 +44,6 @@ def evaluate(model,
     prec = report['macro avg']['precision']
     rec = report['macro avg']['recall']
     loss /= len(data_loader)
-
-    # scheduler step
-    if scheduler is not None:
-        scheduler.step(loss)
 
     # logging
     log_template = "{}\tF1: {:.4f}\tPREC: {:.4f}\tREC: {:.4f}"
@@ -95,19 +91,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # settings
-    parser.add_argument('--split', type=str, default='test')
+    parser.add_argument('--split', type=str, default='dev')
     parser.add_argument('--only_audio', action='store_true')
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
-    parser.add_argument('--model_path', type=str, default='./result/epoch4-loss1.2703-f10.5292.bin')
+    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly4-hd8-lr1e-5/epoch1-loss1.3941-f10.4697.bin')
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--batch_size', type=int, default=32)
 
     # architecture
     parser.add_argument('--n_layers', type=int, default=4)
-    parser.add_argument('--d_model', type=int, default=40)
+    parser.add_argument('--d_model', type=int, default=64)
     parser.add_argument('--n_heads', type=int, default=8)
     parser.add_argument('--attn_mask', action='store_false')
 
@@ -116,18 +112,20 @@ if __name__ == "__main__":
     parser.add_argument('--sample_rate', type=int, default=48000)
     parser.add_argument('--resample_rate', type=int, default=16000)
     parser.add_argument('--n_fft_size', type=int, default=400)
-    parser.add_argument('--n_mfcc', type=int, default=64)
+    parser.add_argument('--n_mfcc', type=int, default=40)
 
     args_ = parser.parse_args()
 
     # -------------------------------------------------------------- #
+    
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     # check usage of modality
     if args_.only_audio and args_.only_text:
         raise ValueError("Please check your usage of modalities.")
 
     # seed and device setting
-    device_ = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device_ = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     args_.device = device_
 
     # log setting
