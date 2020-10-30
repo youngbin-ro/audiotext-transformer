@@ -91,20 +91,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # settings
-    parser.add_argument('--split', type=str, default='dev')
+    parser.add_argument('--split', type=str, default='test')
     parser.add_argument('--only_audio', action='store_true')
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
-    parser.add_argument('--model_path', type=str, default='./result/epoch2-loss1.5351-f10.3848.bin')
+    parser.add_argument('--model_path', type=str, default='./result/ep10-bs64-ly2-hd4-lr1e-5/epoch10-loss1.8899-f10.4149.bin')
     parser.add_argument('--n_classes', type=int, default=7)
     parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--batch_size', type=int, default=64)
 
     # architecture
-    parser.add_argument('--n_layers', type=int, default=4)
+    parser.add_argument('--n_layers', type=int, default=2)
     parser.add_argument('--d_model', type=int, default=64)
-    parser.add_argument('--n_heads', type=int, default=8)
+    parser.add_argument('--n_heads', type=int, default=4)
     parser.add_argument('--attn_mask', action='store_false')
 
     # data processing
