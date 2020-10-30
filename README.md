@@ -68,10 +68,10 @@
 | person_idx |                                             audio |            sentence | emotion |
 | ---------: | ------------------------------------------------: | ------------------: | ------: |
 |          0 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|          1 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|          3 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|          6 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
-|          8 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|          2 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|          7 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|         12 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
+|         17 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... | 오늘 입고 나가야지. |    행복 |
 
 <br/>
 
@@ -92,8 +92,6 @@ korean-audiotext-transformer/
     ├── tokenization.py
     └── vocab.list
 ```
-
-
 
 #### Train AudioText Transformer
 
@@ -124,8 +122,6 @@ python train.py \
   --n_mfcc=40
 ```
 
-
-
 #### Train Audio-Only Baseline
 
 ```shell
@@ -136,8 +132,6 @@ python train.py --only_audio \
   --epochs=10 \
   --batch_size=64 \
 ```
-
-
 
 #### Train Text-Only Baseline
 
@@ -150,38 +144,45 @@ python train.py --only_text \
   --batch_size=64 \
 ```
 
-
-
 #### Evaluate Models
 
 ```shell
 python eval.py [--FLAGS]
 ```
 
+<br/>
 
+## Results
+#### Text-Only Baseline
+![text_only](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/text_only.png?raw=true)
 
+| Emotion  |    Total    | 공포  | 놀람  | 분노  | 슬픔  | 중립  | 행복  | 혐오 |
+| :------: | :---------: | :---: | :---: | :---: | :---: | :---: | :---: | :--: |
+| F1-score | **33.95** | 75.00 | 33.33 | 44.44 | 22.22 | 18.18 | 44.44 | 0.00 |
 
+![text_cm](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/text_cm.png?raw=true)
 
+#### Audio-Only Baseline
+![audio_only](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/audio_only.png?raw=true)
 
+| Emotion  |    Total    | 공포  | 놀람 | 분노  | 슬픔  | 중립  | 행복  | 혐오 |
+| :------: | :---------: | :---: | :--: | :---: | :---: | :---: | :---: | :--: |
+| F1-score | **35.28** | 31.84 | 42.68 | 24.71 | 47.32 | 35.80 | 44.52 | 20.12 |
 
+![audio_cm](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/audio_cm.png?raw=true)
 
+#### Multimodal (Crossmodal) Transformer
+![crossmodal](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/crossmodal.png?raw=true)
 
+| Emotion  |    Total    | 공포  | 놀람  | 분노  | 슬픔  | 중립  | 행복  | 혐오 |
+| :------: | :---------: | :---: | :---: | :---: | :---: | :---: | :---: | :--: |
+| F1-score | **52.54** | 44.18 | 34.44 | 50.95 | 81.81 | 34.28 | 65.93 | 56.19 |
 
+![cross_cm](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/cross_cm.png?raw=true)
 
+<br/>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## References
+- https://github.com/yaohungt/Multimodal-Transformer
+- https://github.com/Donghwa-KIM/audiotext-transformer
+- https://github.com/JhnLee/multimodal-transformer
