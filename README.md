@@ -76,6 +76,15 @@
 <br/>
 
 ## Usage
+#### Prerequisites
+- We recommend to use conda environment to setup
+```
+conda create -n <your_env_name> python=3.6
+conda activate <your_env_name>
+conda install pip
+pip install -r requirements.txt
+```
+
 #### Before training,
 
 Download fine-tuned [BERT](https://drive.google.com/file/d/1WI-FLaMG-5TXwkykF3iUQJ1zYrbZSvzu/view?usp=sharing), and locate the model as follows:
