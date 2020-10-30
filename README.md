@@ -153,7 +153,7 @@ python eval.py [--FLAGS]
 <br/>
 
 ## Results
-#### Text-Only Baseline
+### Text-Only Baseline
 ![text_only](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/text_only.png?raw=true)
 
 | Emotion  |    Total    | 공포  | 놀람  | 분노  | 슬픔  | 중립  | 행복  | 혐오 |
@@ -162,7 +162,10 @@ python eval.py [--FLAGS]
 
 ![text_cm](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/text_cm.png?raw=true)
 
-#### Audio-Only Baseline
+------------------
+
+
+### Audio-Only Baseline
 ![audio_only](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/audio_only.png?raw=true)
 
 | Emotion  |    Total    | 공포  | 놀람 | 분노  | 슬픔  | 중립  | 행복  | 혐오 |
@@ -171,7 +174,10 @@ python eval.py [--FLAGS]
 
 ![audio_cm](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/audio_cm.png?raw=true)
 
-#### Multimodal (Crossmodal) Transformer
+------------------
+
+
+### Multimodal (Crossmodal) Transformer
 ![crossmodal](https://github.com/youngbin-ro/korean-audiotext-transformer/blob/master/images/crossmodal.png?raw=true)
 
 | Emotion  |    Total    | 공포  | 놀람  | 분노  | 슬픔  | 중립  | 행복  | 혐오 |
