@@ -271,12 +271,12 @@ class MultimodalTransformer(nn.Module, ABC):
             x_text = self.text_encoder(x_text.transpose(1, 2)).transpose(1, 2)
                         
             # crossmodal attention
-            x_audio = self.audio_with_text(x_audio, x_text, t_mask).transpose(0, 1)
-            x_text = self.text_with_audio(x_text, x_audio, a_mask).transpose(0, 1)
+            x_audio = self.audio_with_text(x_audio, x_text).transpose(0, 1)
+            x_text = self.text_with_audio(x_text, x_audio).transpose(0, 1)
 
             # self-attention
-            x_audio = self.audio_layers(x_audio, key_mask=a_mask)
-            x_text = self.text_layers(x_text, key_mask=t_mask)
+            x_audio = self.audio_layers(x_audio)
+            x_text = self.text_layers(x_text)
 
             # aggregation & prediction
             features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
@@ -291,7 +291,7 @@ class MultimodalTransformer(nn.Module, ABC):
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_audio:
-            features = self.audio_layers(x_audio, key_mask=a_mask).mean(dim=0)
+            features = self.audio_layers(x_audio).mean(dim=0)
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_text:
