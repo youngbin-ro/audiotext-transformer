@@ -113,27 +113,28 @@ if __name__ == "__main__":
     parser.add_argument('--only_text', action='store_true')
     parser.add_argument('--data_path', type=str, default='./data')
     parser.add_argument('--bert_path', type=str, default='./KoBERT')
-    parser.add_argument('--save_path', type=str, default='./result')
+    parser.add_argument('--save_path', type=str, default='./practice')
     parser.add_argument('--n_classes', type=int, default=7)
-    parser.add_argument('--logging_steps', type=int, default=50)
+    parser.add_argument('--logging_steps', type=int, default=10)
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('--num_workers', type=int, default=8)
+    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--cuda', default='cuda:0')
 
     # dropouts
-    parser.add_argument('--attn_dropout', type=float, default=.2)
-    parser.add_argument('--relu_dropout', type=float, default=.1)
-    parser.add_argument('--emb_dropout', type=float, default=.2)
-    parser.add_argument('--res_dropout', type=float, default=.1)
-    parser.add_argument('--out_dropout', type=float, default=.1)
+    parser.add_argument('--attn_dropout', type=float, default=.3)
+    parser.add_argument('--relu_dropout', type=float, default=.3)
+    parser.add_argument('--emb_dropout', type=float, default=.3)
+    parser.add_argument('--res_dropout', type=float, default=.3)
+    parser.add_argument('--out_dropout', type=float, default=.3)
 
     # architecture
-    parser.add_argument('--n_layers', type=int, default=4)
-    parser.add_argument('--d_model', type=int, default=64)
-    parser.add_argument('--n_heads', type=int, default=8)
+    parser.add_argument('--n_layers', type=int, default=2)
+    parser.add_argument('--d_model', type=int, default=40)
+    parser.add_argument('--n_heads', type=int, default=2)
     parser.add_argument('--attn_mask', action='store_false')
 
     # training
-    parser.add_argument('--lr', type=float, default=1e-5)
+    parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--clip', type=float, default=.8)
@@ -160,6 +161,7 @@ if __name__ == "__main__":
 
     # seed and device setting
     set_seed(args_.seed)
+    os.environ["CUDA_VISIBLE_DEVICES"] = args_.cuda.split(':')[-1]
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     args_.device = device
 
