@@ -204,10 +204,10 @@ class MultimodalTransformer(nn.Module, ABC):
                  d_audio_orig=40,
                  d_text_orig=768,
                  d_model=64,
-                 attn_dropout=.2,
-                 relu_dropout=.1,
-                 emb_dropout=.2,
-                 res_dropout=.1,
+                 attn_dropout=.25,
+                 relu_dropout=.0,
+                 emb_dropout=.3,
+                 res_dropout=.0,
                  out_dropout=.1,
                  attn_mask=True):
         super(MultimodalTransformer, self).__init__()
@@ -261,37 +261,36 @@ class MultimodalTransformer(nn.Module, ABC):
     def forward(self,
                 x_audio,
                 x_text,
-                a_mask,
-                t_mask):
+                a_mask,     # (B, L_a)
+                t_mask):    # (B, L_t)
         out, features = None, None
         if self.use_both:
             
             # temporal convolution
             x_audio = self.audio_encoder(x_audio.transpose(1, 2)).transpose(1, 2)
             x_text = self.text_encoder(x_text.transpose(1, 2)).transpose(1, 2)
-                        
+
             # crossmodal attention
-            x_audio = self.audio_with_text(x_audio, x_text).transpose(0, 1)
-            x_text = self.text_with_audio(x_text, x_audio).transpose(0, 1)
+            x_audio = self.audio_with_text(x_audio, x_text, t_mask).transpose(0, 1)
+            x_text = self.text_with_audio(x_text, x_audio, a_mask).transpose(0, 1)
 
             # self-attention
-            x_audio = self.audio_layers(x_audio)
-            x_text = self.text_layers(x_text)
+            x_audio = self.audio_layers(x_audio, key_mask=a_mask)    # (L_a, B, D)
+            x_text = self.text_layers(x_text, key_mask=t_mask)       # (L_t, B, D)
 
             # aggregation & prediction
-            features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
-            """
+            #features = torch.cat([x_audio.mean(dim=0), x_text.mean(dim=0)], dim=1)
+            #features = torch.cat([x_audio[-1], x_text[-1]], dim=1)
             features = []
             for idx, (cur_a_mask, cur_t_mask) in enumerate(zip(a_mask, t_mask)):
-                cur_x_audio = x_audio[idx, ~cur_a_mask, :].mean(dim=0).unsqueeze(0)
-                cur_x_text = x_text[idx, ~cur_t_mask, :].mean(dim=0).unsqueeze(0)
+                cur_x_audio = x_audio[~cur_a_mask, idx, :].mean(dim=0).unsqueeze(0)
+                cur_x_text = x_text[~cur_t_mask, idx, :].mean(dim=0).unsqueeze(0)
                 features.append(torch.cat([cur_x_audio, cur_x_text], dim=1))
             features = torch.cat(features, dim=0)
-            """
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_audio:
-            features = self.audio_layers(x_audio).mean(dim=0)
+            features = self.audio_layers(x_audio, key_mask=a_mask).mean(dim=0)
             out = features + self.fc2(self.dropout(F.relu(self.fc1(features))))
 
         elif self.only_text:
