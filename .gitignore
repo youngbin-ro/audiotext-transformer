@@ -4,6 +4,8 @@
 /data
 /KoBERT
 /result
+/result_old
+/
 
 *.ipynb
 *.zip
