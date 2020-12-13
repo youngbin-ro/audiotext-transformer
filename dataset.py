@@ -59,7 +59,9 @@ def get_data_loader(args,
         shuffle=True if split == 'train' else False,
         batch_size=batch_size,
         collate_fn=collate_fn,
-        num_workers=num_workers
+        num_workers=num_workers,
+        pin_memory=True,
+        drop_last=True if split == 'train' else False
     )
 
 
@@ -163,6 +165,7 @@ class AudioTextBatchFunction:
         if not self.only_audio:
             self.bert = load_bert(args.bert_path, self.device)
             self.bert.eval()
+            self.bert.zero_grad()
 
     def __call__(self, batch):
         audios, sentences, labels = list(zip(*batch))
@@ -170,7 +173,8 @@ class AudioTextBatchFunction:
         with torch.no_grad():
 
             if not self.only_audio:
-                max_len = min(self.max_len_bert, max([len(sent) for sent in sentences]))
+                #max_len = min(self.max_len_bert, max([len(sent) for sent in sentences]))
+                max_len = self.max_len_bert
                 input_ids = torch.tensor([self.pad_with_text(sent, max_len) for sent in sentences])
                 text_masks = torch.ones_like(input_ids).masked_fill(input_ids == self.pad_idx, 0).bool()
                 text_emb, _ = self.bert(input_ids, text_masks)
@@ -206,17 +210,25 @@ class AudioTextBatchFunction:
         return audio[left:right + 1]
 
     def pad_with_mfcc(self, audios):
-        max_len = min(self.max_len_audio, max([len(audio) for audio in audios]))
+        #max_len = min(self.max_len_audio, max([len(audio) for audio in audios]))
+        max_len = self.max_len_audio
         audio_array = torch.zeros(len(audios), self.n_mfcc, max_len).fill_(float('-inf'))
         for idx, audio in enumerate(audios):
+            # resample and extract mfcc
             audio = librosa.core.resample(audio, self.sample_rate, self.resample_rate)
             mfcc = self.audio2mfcc(torch.tensor(self._trim(audio)).to(self.device))
-            sel_idx = min(mfcc.shape[1], max_len)
-            audio_array[idx, :, :sel_idx] = mfcc[:, :sel_idx]
+
+            # normalize
+            cur_mean, cur_std = mfcc.mean(dim=0), mfcc.std(dim=0)
+            mfcc = (mfcc - cur_mean) / cur_std
+
+            # save the extracted mfcc
+            cur_len = min(mfcc.shape[1], max_len)
+            audio_array[idx, :, :cur_len] = mfcc[:, :cur_len]
 
         # (batch_size, n_mfcc, seq_len) -> (batch_size, seq_len, n_mfcc)
         padded = audio_array.transpose(2, 1)
-        
+
         # get key mask
         key_mask = padded[:, :, 0]
         key_mask = key_mask.masked_fill(key_mask != float('-inf'), 0)
