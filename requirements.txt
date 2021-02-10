@@ -41,7 +41,7 @@ jupyterlab-pygments @ file:///tmp/build/80754af9/jupyterlab_pygments_16014907206
 kiwisolver @ file:///home/conda/feedstock_root/build_artifacts/kiwisolver_1602517217830/work
 librosa @ file:///home/conda/feedstock_root/build_artifacts/librosa_1595413403988/work
 llvmlite==0.34.0
-lxml==4.6.1
+lxml==4.6.2
 MarkupSafe==1.1.1
 matplotlib @ file:///home/conda/feedstock_root/build_artifacts/matplotlib-suite_1602600748404/work
 mistune==0.8.4
